@@ -1,0 +1,8 @@
+#+Title: rendering system notes
+
+* TODO Mesh manager
+** TODO start with new, load, delete, free
+** TODO render, free, bind description, attribute description, load , new , init (functions exposed through mesh.h)
+* TODO Model manager
+** TODO start with new, load, delete, free
+**

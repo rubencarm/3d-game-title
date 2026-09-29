@@ -1,0 +1,52 @@
+[
+  {
+    "arguments": [
+      "/usr/lib64/ccache/gcc",
+      "-g",
+      "-fPIC",
+      "-Wall",
+      "-pedantic",
+      "-std=gnu99",
+      "-fgnu89-inline",
+      "-Wno-unknown-pragmas",
+      "-Wno-variadic-macros",
+      "-Wformat-truncation=0",
+      "-I/usr/include/SDL2",
+      "-D_GNU_SOURCE=1",
+      "-D_REENTRANT",
+      "-I../include",
+      "-I../gfc/include",
+      "-I../gfc/simple_logger/include",
+      "-I../gfc/simple_json/include",
+      "-c",
+      "gf3d_gltf_parse.c"
+    ],
+    "directory": "/home/rdc/Projects/3d-game-title/src",
+    "file": "/home/rdc/Projects/3d-game-title/src/gf3d_gltf_parse.c"
+  },
+  {
+    "arguments": [
+      "/usr/lib64/ccache/gcc",
+      "-g",
+      "-fPIC",
+      "-Wall",
+      "-pedantic",
+      "-std=gnu99",
+      "-fgnu89-inline",
+      "-Wno-unknown-pragmas",
+      "-Wno-variadic-macros",
+      "-Wformat-truncation=0",
+      "-I/usr/include/SDL2",
+      "-D_GNU_SOURCE=1",
+      "-D_REENTRANT",
+      "-I../include",
+      "-I../gfc/include",
+      "-I../gfc/simple_logger/include",
+      "-I../gfc/simple_json/include",
+      "-c",
+      "gf3d_mesh.c"
+    ],
+    "directory": "/home/rdc/Projects/3d-game-title/src",
+    "file": "/home/rdc/Projects/3d-game-title/src/gf3d_mesh.c"
+  }
+]
