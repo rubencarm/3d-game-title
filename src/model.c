@@ -1,5 +1,7 @@
 #include "model.h"
 
+#include "simple_logger.h"
+
 typedef struct
 {
 	Model 		*modelList;
@@ -7,7 +9,7 @@ typedef struct
 	Pipeline	*pipe;
 	VkDevice 	device;
 	Texture		*defaultTexture;
-}ModelManager
+}ModelManager;
 
 static ModelManager model_manager = {0};
 
@@ -17,12 +19,9 @@ void model_init_system(Uint32 model_max)
 		slog("cannot init mesh system, already initialized");
 		return;
 	}
-	if(
 }
 
-ModelUBO model_get_ubo)
-	GFC_Matrix4 modelMat,
-	GFC_Color colorMod)
+ModelUBO model_get_ubo(GFC_Matrix4 modelMat, GFC_Color colorMod)
 {
 	ModelUBO ubo = {0};
 	GFC_Matrix4 *view;
@@ -58,11 +57,10 @@ Mesh *model_new(){
 	int i;
 	for(int i = 0; i < model_manager.modelCount; i++)
 	{
-		if((model_manager.modelList[i]._refCount == 0) && (strlen(model_manager.modelList[i].filename) == 0)
-
+		if((model_manager.modelList[i]._refCount == 0) && (strlen(model_manager.modelList[i].filename) == 0))
 	}
-
 }
+
 Model *model_get_by_filename(const char *filename)
 {
 	int i;
@@ -87,7 +85,8 @@ Model *model_load(const char *filename)
 	Model *model;
 	if(!filename) return NULL;
 	model = model_get_by_filename(filename);
-	if(model){
+    if (model)
+    {
 		model->_refCount++;
 		return model;
 	}
@@ -111,13 +110,15 @@ Model *model_load(const char *filename)
 	}
 
 	str = sj_object_get_string(data,"obj");
-	if(!str){
+    if (!str)
+    {
 		slog("failed to find obj data in file %s", filename);
 		sj_free(json);
 		return NULL;
 	}
 	mesh = gf3d_mesh_load_obj(str);
-	if (!mesh){
+    if (!mesh)
+    {
 		slog("failed to parse obj data for model file %s", filename);
 		sj_free(json);
 		return NULL; // say why in gf3d_mesh_load_obj
@@ -126,9 +127,13 @@ Model *model_load(const char *filename)
 	if(str2)
 	{
 		texture = gf3d_texture_load(str2);
-		if(!texture) texture = model_manager.defultTexture;
-	}
-	else texture - model_manager.defaultTexture;
+		if(!texture) texture = model_manager.defaultTexture;
+    }
+    else
+    {
+        texture = model_manager.defaultTexture;
+    }
+
 	model = model_new();
 	if(!model)
 	{
@@ -138,9 +143,5 @@ Model *model_load(const char *filename)
 	model->mesh = mesh;
 	model->texture = texture;
 	gfc_line_cpy(model->filename,filename);
-	return model;	
-
-
-
-
+	return model;
 }

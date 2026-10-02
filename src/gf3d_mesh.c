@@ -1,3 +1,242 @@
+#include "gf3d_pipeline.h"
+#include "simple_logger.h"
+
+#include "gf3d_mesh.h"
+#include "gf3d_vgraphics.h"
+#include "gf3d_obj_load.h"
+#include "gf3d_buffers.h"
+#include <vulkan/vulkan_core.h>
+
+#define MESH_ATTRIBUTE_COUNT 3
+
+typedef struct
+{
+	Uint32		meshCount;
+	Mesh 		*meshList;
+    VkDevice device;
+    VkVertexInputAttributeDescription attributeDescriptions[MESH_ATTRIBUTE_COUNT];
+    VkVertexInputBindingDescription bindingDescription;
+
+}MeshManager;
+
+static MeshManager mesh_manager = {0};
+void gf3d_mesh_close(void);
+ObjData *gf3d_obj_load_from_file(const char *filename) { return NULL; }
+
+void gf3d_mesh_delete(Mesh *mesh) {}
+
+void gf3d_mesh_primitive_delete(MeshPrimitive *prim) {}
+
+void gf3d_mesh_manager_close(void) {
+        if (mesh_manager.meshList)
+        {
+            free(mesh_manager.meshList);
+        }
+        memset(&mesh_manager, '0', sizeof(MeshManager));
+}
+void gf3d_mesh_init(Uint32 mesh_max) {
+
+
+	if(mesh_manager.meshCount != 0)
+	{
+		slog("Cannot init mesh system, already initialized");
+		return;
+	}
+	if(mesh_max == 0)
+	{	
+		slog("Cannot initialize mesh system for zero meshes");
+		return;
+	}
+
+    mesh_manager.meshList = (Mesh *)gfc_allocate_array(sizeof(Mesh), mesh_max);
+    if (!mesh_manager.meshList)
+            return;
+    mesh_manager.meshCount = mesh_max;
+    mesh_manager.device = gf3d_vgraphics_get_default_logical_device();
+
+	atexit(gf3d_mesh_close);
+}
+
+void *gf3d_mesh_get_by_filename(const char *filename)
+{
+	if(!filename) return NULL;
+	int i;
+	for(i = 0; i < mesh_manager.meshCount; i++){
+		if(strlen(mesh_manager.meshList[i].filename) == 0) continue;
+		if(gfc_strlcmp(mesh_manager.meshList[i].filename, filename) == 0)
+		{
+			return &mesh_manager.meshList[i];
+		}
+	}
+	return NULL;
+}
+
+Mesh *gf3d_mesh_load_obj(const char *filename)
+{
+	Mesh *mesh;
+	MeshPrimitive* prim;
+	if(!filename) return NULL;
+
+	mesh = gf3d_mesh_get_by_filename(filename);
+	if(mesh)
+	{
+		mesh->_refCount++;
+		return mesh;
+	}
+	mesh = gf3d_mesh_new();
+	if(!mesh)
+	{
+		slog("failed to allocate new mesh");
+		return NULL;
+	}
+	prim = gf3d_mesh_primitive_new();
+	if(!prim){
+		slog("failed to get a new primitive mesh for %s", filename);
+
+	}
+	prim->objData = gf3d_obj_load_from_file(filename);
+	if(!prim->objData)
+	{
+		slog("failed to parse file %s for obj data", filename);
+        gf3d_mesh_delete(mesh);
+        gf3d_mesh_primitive_delete(prim);
+		return NULL;
+	}
+	
+}
+
+int gf3d_mesh_primitive_buffer_create(MeshPrimitive *prim){
+
+	void* data = NULL;
+	Uint32 bufferSize = 0;
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+
+	if((!prim) || (!prim->objData)) return 0;
+
+	// face buffers
+	bufferSize = sizeof(Face) *prim->objData->face_count;
+
+        gf3d_buffer_create(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                               VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                           &stagingBuffer,
+                           &stagingBufferMemory);
+	vkMapMemory(mesh_manager.device, stagingBufferMemory, 0, bufferSize, 0, &data);
+	memcpy(data, prim->objData->outFace, (size_t) bufferSize);
+	vkUnmapMemory(mesh_manager.device, stagingBufferMemory);
+
+	gf3d_buffer_create(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+		    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &prim->faceBuffer, &prim->faceBufferMemory);
+
+	gf3d_buffer_copy(stagingBuffer, prim->faceBuffer, bufferSize);
+	//vertex buffers
+	bufferSize = sizeof(Face) * prim->objData->face_vert_count;
+
+        gf3d_buffer_create(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                               VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                           &stagingBuffer,
+                           &stagingBufferMemory);
+	vkMapMemory(mesh_manager.device, stagingBufferMemory, 0, bufferSize, 0, &data);
+	memcpy(data, prim->objData->faceVertices, (size_t) bufferSize);
+	vkUnmapMemory(mesh_manager.device, stagingBufferMemory);
+
+	gf3d_buffer_create(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+		    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &prim->vertexBuffer, &prim->vertexBufferMemory);
+
+	gf3d_buffer_copy(stagingBuffer, prim->vertexBuffer, bufferSize);
+
+	vkDestroyBuffer(mesh_manager.device, stagingBuffer, NULL);
+	vkFreeMemory(mesh_manager.device, stagingBufferMemory, NULL);
+
+	return 1;
+}
+int gf3d_mesh_obj_buffer_create(Mesh *mesh)
+{
+	int i,c;
+	int ret = 0;
+	MeshPrimitive *prim;
+	if(!mesh) return 0;
+	prim = gf3d_mesh_primitive_new();
+	if(!prim)
+	{
+		slog("failed to get new primitive for mesh");
+		return 0;
+	}
+	if(gf3d_mesh_primitive_buffer_create(prim))
+	{
+		gfc_list_append(mesh->primitives,prim);
+		return 1;
+	}
+	return 0;
+}
+
+
+void gf3d_mesh_close(void)
+{
+	int i;
+	//go through list of meshes and free them all
+	for(i = 0; i < mesh_manager.meshCount; i++){
+		gf3d_mesh_free(&mesh_manager.meshList[i]);
+	}
+	free(mesh_manager.meshList);
+	memset(&mesh_manager, 0, sizeof(MeshManager));
+}
+
+Mesh *gf3d_mesh_new(void){
+	int i;
+
+	for(i = 0; i < mesh_manager.meshCount; i++){
+		if(mesh_manager.meshList[i]._refCount == 0)
+		{
+			mesh_manager.meshList[i].primitives = gfc_list_new();
+			if(mesh_manager.meshList[i].primitives == NULL)
+			{
+				slog("cannot allocate more memory for a new mesh");
+				return NULL;
+			};
+			mesh_manager.meshList[i]._refCount = 1;
+			return &mesh_manager.meshList[i];
+		}
+	}
+	return NULL;
+}
+void gf3d_mesh_primitive_free(MeshPrimitive* prim)
+{
+	if (prim->vertexBuffer != VK_NULL_HANDLE)
+	{
+		vkDestroyBuffer(mesh_manager.device, prim->vertexBuffer, NULL);
+	}
+	if(prim->vertexBufferMemory != VK_NULL_HANDLE){
+		vkFreeMemory(mesh_manager.device, prim->vertexBufferMemory, NULL);
+	}
+	if(prim->faceBuffer != VK_NULL_HANDLE){
+		vkDestroyBuffer(mesh_manager.device, prim->faceBuffer, NULL);
+	}
+	if(prim->faceBufferMemory != VK_NULL_HANDLE){
+		vkFreeMemory(mesh_manager.device, prim->faceBufferMemory, NULL);
+	}
+}
+
+
+void gf3d_mesh_free(Mesh *mesh)
+{
+	int i,c;
+	MeshPrimitive *prim;
+	if(!mesh) return;
+	c=gfc_list_count(mesh->primitives);
+	for(i = 0; i < c; i++)
+	{
+		prim=gfc_list_nth(mesh->primitives,i);
+		if(!prim) continue;
+		gf3d_mesh_primitive_free(prim);
+		
+	}
+
+}
+
+/*eof@eol*/
 /*
 
  * @brief initializes the mesh system / configures internal data about mesh based rendering
@@ -81,93 +320,9 @@ void gf3d_mesh_create_vertex_buffer_from_vertices(MeshPrimitive *primitive);
 Pipeline *gf3d_mesh_get_pipeline();
 
  * @brief given a model matrix and basic color, build the meshUBO needed to render a model
- * @param modelMat the model Matrix
+* @param modelMat the model Matriix
  * @param colorMod the color for the UBO
 MeshUBO gf3d_mesh_get_ubo(
     GFC_Matrix4 modelMat,
     GFC_Color colorMod);
 */
-#include "simple_logger.h"
-
-typedef struct
-{
-	Uint32	meshCount;
-	Mesh 	*meshList;
-}MeshManager;
-
-static MeshManager mesh_manager = {0};
-
-void gf3d_mesh_close();
-
-void gf3d_mesh_init(Uint32 mesh_max)
-{
-	if(mesh_manager.meshCount != 0)
-	{
-		slog("Cannot init mesh system, already initialized");
-		return;
-	}
-
-	if(mesh_max == 0)
-	{	
-		slog("Cannot initialize mesh system for zero meshes");
-		return;
-	}
-	mesh_manager.meshList = gfc_allocate_array(sizeof(Mesh), mesh_max);
-	if(!mesh_manager.meshList)return;
-
-	mesh_manager.meshCount = mesh_max;
-	atexit(gf3d_mesh_close);
-}
-
-void gf3d_mesh_close()
-{
-	int i;
-	//go through list of meshes and free them all
-	for(i = 0; i < mesh_manager.meshCount; i++){
-		gf3d_mesh_free(&mesh_manager.meshList[i])
-	}
-	free(mesh_manager.meshList);
-	memset(&mesh_manager, 0, sizeof(MeshManager));
-}
-
-Mesh *gf3d_mesh_new(){
-	int i;
-
-	for(i = 0; i < mesh_manager.meshCount; i++){
-		if(mesh_manager.meshList[i]._refCount == 0)
-		{
-			mesh_manager.meshList[i].primitives = gfc_list_new();
-			if(mesh_manager.meshList[i].primitives == NULL)
-			{
-				slog("cannot allocate more memory for a new mesh");
-				return NULL;
-			};
-			mesh_manager.meshList[i]._refCount = 1;
-			return &mesh_manager.meshList[i];
-		}
-	}
-	return NULL;
-}
-
-void gf3d_mesh_free(Mesh *mesh)
-{
-	int i,c;
-	MeshPrimitive *prim;
-	if(!mesh) return;
-	c=gfc_list_count(mesh->primitives);
-	for(i = 0; i < c; i++)
-	{
-		prim=gfc_list_nth(mesh->primitives,i);
-		if(!prim) continue;
-		gf3d_mesh_primitive_free(prim);
-		
-	}
-
-}
-
-void gf3d_mesh_primitive_free(MeshPrimitive* prim)
-{
-
-	if(!prim) return;
-}
-/*eof@eol*/

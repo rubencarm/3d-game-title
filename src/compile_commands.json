@@ -19,14 +19,14 @@
       "-I../gfc/simple_logger/include",
       "-I../gfc/simple_json/include",
       "-c",
-      "gf3d_gltf_parse.c"
+      "gf3d_mesh.c"
     ],
     "directory": "/home/rdc/Projects/3d-game-title/src",
-    "file": "/home/rdc/Projects/3d-game-title/src/gf3d_gltf_parse.c"
+    "file": "/home/rdc/Projects/3d-game-title/src/gf3d_mesh.c"
   },
   {
     "arguments": [
-      "/usr/lib64/ccache/gcc",
+      "/usr/bin/gcc",
       "-g",
       "-fPIC",
       "-Wall",
@@ -43,10 +43,14 @@
       "-I../gfc/include",
       "-I../gfc/simple_logger/include",
       "-I../gfc/simple_json/include",
+      "-fdiagnostics-color",
       "-c",
+      "-o",
+      "gf3d_mesh.o",
       "gf3d_mesh.c"
     ],
     "directory": "/home/rdc/Projects/3d-game-title/src",
-    "file": "/home/rdc/Projects/3d-game-title/src/gf3d_mesh.c"
+    "file": "/home/rdc/Projects/3d-game-title/src/gf3d_mesh.c",
+    "output": "/home/rdc/Projects/3d-game-title/src/gf3d_mesh.o"
   }
 ]
