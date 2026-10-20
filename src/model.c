@@ -1,6 +1,9 @@
-#include "model.h"
-
+#include "gf3d_mesh.h"
+#include "gfc_types.h"
 #include "simple_logger.h"
+
+#include "model.h"
+#include "gf3d_vgraphics.h"
 
 typedef struct
 {
@@ -19,20 +22,30 @@ void model_init_system(Uint32 model_max)
 		slog("cannot init mesh system, already initialized");
 		return;
 	}
+    if(!model_max){
+    slog("cannot initialize model system for zero models");
+
+    }
+    model_manager.modelList = gfc_allocate_array(sizeof(Model), model_max);
+    model_manager.modelCount = model_max;
+    gf3d_mesh_init(model_max);
+    slog("model system initialized");
 }
 
 ModelUBO model_get_ubo(GFC_Matrix4 modelMat, GFC_Color colorMod)
 {
 	ModelUBO ubo = {0};
-	GFC_Matrix4 *view;
-	gfc_matrix4_copy(ubo.model,modelMat);
-	view = gf3d_vgraphics_get_view_matrix();
+	GFC_Matrix4 *view = NULL;
+	gfc_matrix4_copy(ubo.model, modelMat);
+
+    view = gf3d_vgraphics_get_view_matrix();
 	if(view) gfc_matrix4_copy(ubo.view,*view);
 	gf3d_vgraphics_get_projection_matrix(&ubo.proj);
 	ubo.color = gfc_color_to_vector4f(colorMod);
 	return ubo;
 }
-void model_close()
+
+void model_close(void)
 {
 	int i,c;
 	for(i = 0; i < model_manager.modelCount; i++)
@@ -45,20 +58,22 @@ void model_close()
 	memset(&model_manager,0,sizeof(ModelManager));
 }
 
-void model_delete(Model *model)
+void model_free(Model *model)
 {
 	if(!model) return;
 
 	gf3d_texture_free (model->texture);
 	gf3d_mesh_free(model->mesh);
-	memset(model,0,sizeof(model));
+	memset(model,0,sizeof(Model));
 }
-Mesh *model_new(){
+Model *model_new(void){
 	int i;
 	for(int i = 0; i < model_manager.modelCount; i++)
 	{
-		if((model_manager.modelList[i]._refCount == 0) && (strlen(model_manager.modelList[i].filename) == 0))
+        if(model_manager.modelList[i]._refCount) continue;
+        return &model_manager.modelList[i];
 	}
+    return NULL;
 }
 
 Model *model_get_by_filename(const char *filename)
@@ -68,10 +83,18 @@ Model *model_get_by_filename(const char *filename)
 	for(i = 0; i < model_manager.modelCount; i++)
 	{
 		if(model_manager.modelList[i]._refCount == 0) continue;
-		if(gfc_strlcmp(filename, model_manager.modelList[i].filename) == 0){
+		if(gfc_strlcmp(filename, model_manager.modelList[i].mesh->filename) == 0)
+        {
 			return &model_manager.modelList[i];
 		}
-	}
+        else
+        {
+            gfc_line_cpy(model_manager.modelList[i].mesh->filename, filename);
+            model_manager.modelList[i]._refCount++;
+            return &model_manager.modelList[i];
+            
+        }
+    }
 	return NULL;
 }
 
@@ -84,11 +107,10 @@ Model *model_load(const char *filename)
 	SJson *json,*data;
 	Model *model;
 	if(!filename) return NULL;
-	model = model_get_by_filename(filename);
+	model = model_new();
     if (model)
     {
 		model->_refCount++;
-		return model;
 	}
 	if(!model)
 	{
@@ -101,7 +123,7 @@ Model *model_load(const char *filename)
 		slog("failed to load model %s", filename);
 		return NULL;
 	}
-	data = sj_object_get_value(json,"model");
+	data = sj_object_get_value(json,"obj");
 	if(!data)
 	{
 		slog("failed to get model info from file %s", filename);
@@ -125,7 +147,7 @@ Model *model_load(const char *filename)
 	}
 	str2 = sj_object_get_string(data,"texture");
 	if(str2)
-	{
+    {
 		texture = gf3d_texture_load(str2);
 		if(!texture) texture = model_manager.defaultTexture;
     }
@@ -142,6 +164,14 @@ Model *model_load(const char *filename)
 	}
 	model->mesh = mesh;
 	model->texture = texture;
-	gfc_line_cpy(model->filename,filename);
+	gfc_line_cpy(model->mesh->filename,filename);
 	return model;
+}
+
+
+void model_queue_render(Model* model, GFC_Matrix4 modelMat, GFC_Color colorMod){
+    ModelUBO modelUBO;
+    modelUBO = model_get_ubo(modelMat, colorMod);
+    gf3d_mesh_queue_render(model->mesh, model_manager.pipe, &modelUBO, model->texture);
+
 }

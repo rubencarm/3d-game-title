@@ -20,6 +20,8 @@
 #include "gf3d_pipeline.h"
 #include "gf3d_swapchain.h"
 
+#include "model.h"
+
 extern int __DEBUG;
 
 static int _done = 0;
@@ -38,6 +40,7 @@ void exitGame()
 int main(int argc,char *argv[])
 {
     //local variables
+    Model *model;
     Sprite *bg;
     //initializtion    
     parse_arguments(argc,argv);
@@ -51,12 +54,14 @@ int main(int argc,char *argv[])
     gf3d_vgraphics_init("config/setup.cfg");
     gf2d_font_init("config/font.cfg");
     gf2d_actor_init(1000);
+    model_init_system(1000);
     
     //game init
     srand(SDL_GetTicks());
     slog_sync();
     bg = gf2d_sprite_load_image("images/bg_flat.png");
     gf2d_mouse_load("actors/mouse.actor");
+    model = model_load("models/dino/dino.model");
     // main game loop    
     while(!_done)
     {

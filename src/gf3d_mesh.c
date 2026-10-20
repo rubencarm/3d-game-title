@@ -21,11 +21,12 @@ typedef struct
 
 static MeshManager mesh_manager = {0};
 void gf3d_mesh_close(void);
-ObjData *gf3d_obj_load_from_file(const char *filename) { return NULL; }
 
 void gf3d_mesh_delete(Mesh *mesh) {}
 
 void gf3d_mesh_primitive_delete(MeshPrimitive *prim) {}
+
+int gf3d_mesh_primitive_buffer_create(MeshPrimitive *prim);
 
 void gf3d_mesh_manager_close(void) {
         if (mesh_manager.meshList)
@@ -71,6 +72,16 @@ void *gf3d_mesh_get_by_filename(const char *filename)
 	return NULL;
 }
 
+MeshPrimitive* gf3d_mesh_primitive_new(void)
+{
+    MeshPrimitive* prim;
+
+    prim = gfc_allocate_array(sizeof(MeshPrimitive), 1);
+    if(!prim) return NULL;
+    
+    return prim;
+}
+
 Mesh *gf3d_mesh_load_obj(const char *filename)
 {
 	Mesh *mesh;
@@ -102,6 +113,14 @@ Mesh *gf3d_mesh_load_obj(const char *filename)
         gf3d_mesh_primitive_delete(prim);
 		return NULL;
 	}
+    if(!gf3d_mesh_primitive_buffer_create(prim)){
+        gf3d_mesh_delete(mesh);
+        gf3d_mesh_primitive_delete(prim);
+        return NULL;
+    }
+    gfc_list_append(mesh->primitives,prim);
+    return mesh;
+    
 	
 }
 
@@ -154,8 +173,6 @@ int gf3d_mesh_primitive_buffer_create(MeshPrimitive *prim){
 }
 int gf3d_mesh_obj_buffer_create(Mesh *mesh)
 {
-	int i,c;
-	int ret = 0;
 	MeshPrimitive *prim;
 	if(!mesh) return 0;
 	prim = gf3d_mesh_primitive_new();
@@ -235,6 +252,23 @@ void gf3d_mesh_free(Mesh *mesh)
 	}
 
 }
+
+void gf3d_mesh_queue_render(Mesh* mesh, Pipeline* pipe, void* uboData, Texture* texture){
+    MeshUBO *meshUBO = (MeshUBO*) uboData;
+    MeshPrimitive *prim;
+    int i,c;
+    if(!mesh) return;
+    if(!texture) return;
+    if(!uboData) return;
+    c = gfc_list_get_count(mesh->primitives);
+    for(i = 0; i < c; c++)
+    {
+        prim = gfc_list_get_nth(mesh->primitives,i);
+        gf3d_pipeline_queue_render(pipe, prim->vertexBuffer, prim->vertexCount, prim->faceBuffer, meshUBO, texture);
+    }
+
+}
+
 
 /*eof@eol*/
 /*
