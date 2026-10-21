@@ -55,6 +55,25 @@ void gf3d_mesh_init(Uint32 mesh_max) {
     mesh_manager.meshCount = mesh_max;
     mesh_manager.device = gf3d_vgraphics_get_default_logical_device();
 
+    mesh_manager.attributeDescriptions[0].binding = 0;
+    mesh_manager.attributeDescriptions[0].location = 0;
+    mesh_manager.attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+    mesh_manager.attributeDescriptions[0].offset = offsetof(Vertex, vertex);
+
+    mesh_manager.attributeDescriptions[1].binding = 0;
+    mesh_manager.attributeDescriptions[1].location = 1;
+    mesh_manager.attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+    mesh_manager.attributeDescriptions[1].offset = offsetof(Vertex, normal);
+
+    mesh_manager.attributeDescriptions[2].binding = 0;
+    mesh_manager.attributeDescriptions[2].location = 2;
+    mesh_manager.attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
+    mesh_manager.attributeDescriptions[2].offset = offsetof(Vertex, texel);
+
+    mesh_manager.bindingDescription.binding = 0;
+    mesh_manager.bindingDescription.stride = sizeof(Vertex);
+    mesh_manager.bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
 	atexit(gf3d_mesh_close);
 }
 
@@ -87,7 +106,6 @@ Mesh *gf3d_mesh_load_obj(const char *filename)
 	Mesh *mesh;
 	MeshPrimitive* prim;
 	if(!filename) return NULL;
-
 	mesh = gf3d_mesh_get_by_filename(filename);
 	if(mesh)
 	{
@@ -109,13 +127,13 @@ Mesh *gf3d_mesh_load_obj(const char *filename)
 	if(!prim->objData)
 	{
 		slog("failed to parse file %s for obj data", filename);
-        gf3d_mesh_delete(mesh);
-        gf3d_mesh_primitive_delete(prim);
+        	gf3d_mesh_delete(mesh);
+        	gf3d_mesh_primitive_delete(prim);
 		return NULL;
 	}
-    if(!gf3d_mesh_primitive_buffer_create(prim)){
-        gf3d_mesh_delete(mesh);
-        gf3d_mesh_primitive_delete(prim);
+	if(!gf3d_mesh_primitive_buffer_create(prim)){
+		gf3d_mesh_delete(mesh);
+		gf3d_mesh_primitive_delete(prim);
         return NULL;
     }
     gfc_list_append(mesh->primitives,prim);
@@ -266,7 +284,16 @@ void gf3d_mesh_queue_render(Mesh* mesh, Pipeline* pipe, void* uboData, Texture* 
         prim = gfc_list_get_nth(mesh->primitives,i);
         gf3d_pipeline_queue_render(pipe, prim->vertexBuffer, prim->vertexCount, prim->faceBuffer, meshUBO, texture);
     }
+}
 
+
+VkVertexInputAttributeDescription *
+gf3d_mesh_get_attribute_descriptions(Uint32 *count) {
+    return mesh_manager.attributeDescriptions;
+}
+
+VkVertexInputBindingDescription *gf3d_mesh_get_bind_description(void) {
+    return &mesh_manager.bindingDescription;
 }
 
 
