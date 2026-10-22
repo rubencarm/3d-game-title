@@ -23,7 +23,6 @@ typedef struct
     GFC_Matrix4     view;
     GFC_Matrix4     proj;
     GFC_Vector4D    color;
-    GFC_Vector4D    camera;
 }MeshUBO;
 
 typedef struct
@@ -170,7 +169,7 @@ void gf3d_mesh_create_vertex_buffer_from_vertices(MeshPrimitive *primitive);
  * @brief get the pipeline that is used to render basic 3d meshes
  * @return NULL on error or the pipeline in question
  */
-Pipeline *gf3d_mesh_get_pipeline();
+Pipeline *gf3d_mesh_get_pipeline(void);
 
 /**
  * @brief given a model matrix and basic color, build the meshUBO needed to render a model

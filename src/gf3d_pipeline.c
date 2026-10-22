@@ -161,8 +161,8 @@ PipelineDrawCall *gf3d_pipeline_draw_call_new(Pipeline *pipe)
     char *ptr;
     if (!pipe)return NULL;
     ptr = pipe->uboData;
-    if (pipe->drawCallCount >= pipe->drawCallListCount)
-    {
+
+    if (pipe->drawCallCount >= pipe->drawCallListCount) {
         if (__DEBUG)slog("cannot queue up any more draw calls this frame");
         return NULL;
     }
@@ -185,7 +185,9 @@ void gf3d_pipeline_queue_render(
     Texture *texture)
 {
     PipelineDrawCall *drawCall;
-    if (!pipe)return;
+    if (!pipe)
+        return;
+    slog("sloggin");
     drawCall = gf3d_pipeline_draw_call_new(pipe);
     if (!drawCall)
     {
