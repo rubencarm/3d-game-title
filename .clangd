@@ -1,0 +1,7 @@
+CompileFlags:
+  Add: [
+    -I./include,
+    -I./gfc/include,
+    -I./gfc/simple_logger/include,
+    -I./gfc/simple_json/include
+  ]
