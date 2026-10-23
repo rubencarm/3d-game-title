@@ -24,8 +24,8 @@ INC_PARAMS =$(foreach d, $(INC_PATHS), -I$d)
 
 SDL_CFLAGS = `sdl2-config --cflags` $(INC_PARAMS)
 SDL_LDFLAGS = `sdl2-config --libs` -lSDL2_image -lSDL2_ttf -lSDL2_mixer -lpng -ljpeg -lz -lvulkan -lm
-LFLAGS = -g  -o ../$(PROJECT) 
-CFLAGS = -g  -fPIC -Wall -pedantic -std=gnu99 -fgnu89-inline -Wno-unknown-pragmas -Wno-variadic-macros -Wformat-truncation=0
+LFLAGS = -g  -o ../$(PROJECT) -fsanitize=address
+CFLAGS = -g  -fPIC -Wall -pedantic -std=gnu99 -fgnu89-inline -Wno-unknown-pragmas -Wno-variadic-macros -Wformat-truncation=0 -fsanitize=address
 # -ffast-math for relase version
 
 DOXYGEN = doxygen
