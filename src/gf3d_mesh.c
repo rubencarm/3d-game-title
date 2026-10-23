@@ -25,13 +25,31 @@ static MeshManager mesh_manager = {0};
 
 void gf3d_mesh_close(void);
 
-void gf3d_mesh_delete(Mesh *mesh) {}
+void gf3d_mesh_primitive_delete(MeshPrimitive *prim) {
+    gf3d_obj_free(prim->objData);
+    free(prim);
+}
+void gf3d_mesh_delete(Mesh *mesh) {
+    int i, c;
+    if (!mesh)
+        return;
+    if (!mesh->primitives)
+        return;
+    c = gfc_list_get_count(mesh->primitives);
+    for (i = 0; i < c; i++) {
+        gf3d_mesh_primitive_delete(gfc_list_get_nth(mesh->primitives, i));
+    }
+    gfc_list_delete(mesh->primitives);
+}
 
-void gf3d_mesh_primitive_delete(MeshPrimitive *prim) {}
 
 int gf3d_mesh_primitive_buffer_create(MeshPrimitive *prim);
 
 void gf3d_mesh_manager_close(void) {
+    int i;
+    for (i = 0; i < mesh_manager.meshCount; i++) {
+        gf3d_mesh_delete(&mesh_manager.meshList[i]);
+    }
     if (mesh_manager.meshList)
         {
             free(mesh_manager.meshList);
@@ -139,14 +157,14 @@ Mesh *gf3d_mesh_load_obj(const char *filename)
 		slog("failed to get a new primitive mesh for %s", filename);
 
 	}
-	prim->objData = gf3d_obj_load_from_file(filename);
+    prim->objData = gf3d_obj_load_from_file(filename);
 	if(!prim->objData)
 	{
 		slog("failed to parse file %s for obj data", filename);
         	gf3d_mesh_delete(mesh);
         	gf3d_mesh_primitive_delete(prim);
 		return NULL;
-	}
+    }
 	if(!gf3d_mesh_primitive_buffer_create(prim)){
 		gf3d_mesh_delete(mesh);
 		gf3d_mesh_primitive_delete(prim);
@@ -177,7 +195,6 @@ int gf3d_mesh_primitive_buffer_create(MeshPrimitive *prim){
                            &stagingBufferMemory);
 	vkMapMemory(mesh_manager.device, stagingBufferMemory, 0, bufferSize, 0, &data);
     memcpy(data, prim->objData->outFace, (size_t)bufferSize);
-
 	vkUnmapMemory(mesh_manager.device, stagingBufferMemory);
 
 	gf3d_buffer_create(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
@@ -307,7 +324,6 @@ void gf3d_mesh_queue_render(Mesh* mesh, Pipeline* pipe, void* uboData, Texture* 
 
     {
         prim = gfc_list_get_nth(mesh->primitives, i);
-    slog("vertexCount: %d",prim->vertexCount);
         gf3d_pipeline_queue_render(mesh_manager.pipe, prim->vertexBuffer, prim->vertexCount, prim->faceBuffer, meshUBO, texture);
     }
 }
@@ -327,7 +343,7 @@ MeshUBO gf3d_mesh_get_ubo(GFC_Matrix4 modelMat, GFC_Color colorMod) {
     gf3d_vgraphics_get_projection_matrix(&meshUBO.proj);
     gf3d_vgraphics_get_view(&meshUBO.view);
     memcpy(meshUBO.model, modelMat, sizeof(GFC_Matrix4));
-    meshUBO.color = gfc_color_to_vector4(colorMod);
+    meshUBO.color = gfc_color_to_vector4f(colorMod);
     return meshUBO;
 
 

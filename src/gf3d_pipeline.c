@@ -187,7 +187,6 @@ void gf3d_pipeline_queue_render(
     PipelineDrawCall *drawCall;
     if (!pipe)
         return;
-    slog("sloggin");
     drawCall = gf3d_pipeline_draw_call_new(pipe);
     if (!drawCall)
     {
